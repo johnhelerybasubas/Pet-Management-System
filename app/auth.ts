@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { supabase } from "@/app/lib/supabase";
 
-const authConfig = {
+export const { handlers, auth } = NextAuth({
   providers: [
     Credentials({
       id: 'credentials',
@@ -70,11 +70,5 @@ const authConfig = {
     strategy: "jwt" as const,
     maxAge: 30 * 24 * 60 * 60,
   },
-};
-
-// Initialize NextAuth
-const nextAuthResult = NextAuth(authConfig);
-
-export const handlers = nextAuthResult.handlers;
-export const auth = nextAuthResult.auth;
+});
 

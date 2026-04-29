@@ -1,8 +1,10 @@
+import { auth } from "@/app/auth";
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const session = await auth();
 
   // Protected routes that require authentication
   const protectedRoutes = ['/dashboard', '/pets', '/services', '/booking', '/admin/dashboard', '/'];
@@ -19,14 +21,16 @@ export async function middleware(req: NextRequest) {
   // Check if accessing admin route
   const isAdminRoute = pathname.startsWith('/admin');
 
-  // Check if user has auth session in cookies
-  const authToken = req.cookies.get('sb-auth-token')?.value;
-  const hasSession = !!authToken;
-
   // If accessing protected route without session, redirect to appropriate login
-  if (isProtectedRoute && !hasSession) {
+  if (isProtectedRoute && !session) {
     const loginUrl = new URL(isAdminRoute ? '/admin-login' : '/login', req.url);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // If accessing auth route while logged in, redirect to dashboard
+  if (isAuthRoute && session) {
+    const dashboardUrl = new URL(isAdminRoute ? '/admin/dashboard' : '/dashboard', req.url);
+    return NextResponse.redirect(dashboardUrl);
   }
 
   return NextResponse.next();

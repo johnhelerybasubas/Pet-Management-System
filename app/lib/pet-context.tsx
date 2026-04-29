@@ -14,6 +14,8 @@ interface Pet {
   microchip_id?: string;
   allergies?: string[];
   health_score: number;
+  vaccination_status?: 'up-to-date' | 'due' | 'overdue';
+  activity_level?: 'high' | 'medium' | 'low';
   image_url?: string;
 }
 

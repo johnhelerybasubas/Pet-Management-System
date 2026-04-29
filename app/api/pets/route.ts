@@ -2,15 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 import { supabase, supabaseAdmin } from '@/app/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 
-// Allow larger body size for image uploads (10MB)
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-};
-
 // Helper function to get user from token (handles both real and mock tokens)
 async function getUserFromToken(token: string) {
   // Check if it's a mock token (for development)
