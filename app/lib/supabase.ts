@@ -4,6 +4,19 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// Log configuration for debugging
+if (typeof window === 'undefined') {
+  console.log('Supabase Config:', {
+    url: supabaseUrl ? 'SET' : 'MISSING',
+    anonKey: supabaseAnonKey ? 'SET' : 'MISSING',
+    serviceKey: supabaseServiceKey ? 'SET' : 'MISSING',
+  });
+}
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables. Please check .env.local');
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Service role client for server-side operations (bypasses RLS)
