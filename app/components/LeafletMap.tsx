@@ -60,6 +60,10 @@ export default function LeafletMap({
   );
 
   useEffect(() => {
+    // Check if map container exists
+    const mapContainer = document.getElementById('map');
+    if (!mapContainer) return;
+
     // Initialize map only once
     if (!mapRef.current) {
       const map = L.map('map').setView([8.9746, 125.5308], 14);
@@ -88,7 +92,7 @@ export default function LeafletMap({
       // Check if service is at Butuan Veterinary Clinic
       const clinicServices = ['General Checkup', 'Vaccination Records'];
       const isClinicService = clinicServices.includes(service.name);
-      
+
       let popupContent = '<div><strong>' + service.name + '</strong>';
       if (isClinicService) {
         popupContent += '<br><span style="background-color: #0d9488; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px;">✓ Butuan Vet Clinic</span>';
@@ -110,6 +114,16 @@ export default function LeafletMap({
 
       markersRef.current[service.id] = marker;
     });
+
+    // Cleanup function
+    return () => {
+      if (mapRef.current) {
+        Object.keys(markersRef.current).forEach((id) => {
+          mapRef.current!.removeLayer(markersRef.current[id]);
+        });
+        markersRef.current = {};
+      }
+    };
   }, [validServices, selectedServiceId, onServiceSelect]);
 
   return (

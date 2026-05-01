@@ -13,6 +13,11 @@ export default function AdminLogin() {
   const [trustDevice, setTrustDevice] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Helper to set auth cookie for client-side
+  const setAuthCookie = (token: string) => {
+    document.cookie = `sb-auth-token=${token}; path=/; max-age=604800; SameSite=Lax`;
+  };
+
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -35,6 +40,22 @@ export default function AdminLogin() {
       }
 
       const data = await response.json();
+
+      // Store auth data in localStorage for AuthContext
+      if (data.user) {
+        const userData = {
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'Admin',
+          role: 'admin',
+        };
+        localStorage.setItem('auth_user', JSON.stringify(userData));
+        
+        if (data.session?.access_token) {
+          localStorage.setItem('auth_token', data.session.access_token);
+          setAuthCookie(data.session.access_token);
+        }
+      }
 
       if (data.requires2FA) {
         setStep('2fa');

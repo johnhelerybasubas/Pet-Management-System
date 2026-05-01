@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     // Set session cookie
     if (data.session) {
       response.cookies.set('sb-auth-token', data.session.access_token, {
-        httpOnly: true,
+        httpOnly: false, // Allow client-side JS to read
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 7,
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       
       // Set admin flag cookie
       response.cookies.set('is-admin', 'true', {
-        httpOnly: true,
+        httpOnly: false, // Allow client-side JS to read
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 7,

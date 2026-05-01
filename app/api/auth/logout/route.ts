@@ -9,7 +9,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ message: 'Logged out successfully' });
+    const response = NextResponse.json({ message: 'Logged out successfully' });
+    
+    // Clear the auth cookie
+    response.cookies.set('sb-auth-token', '', {
+      httpOnly: false,
+      secure: false,
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/',
+    });
+
+    return response;
   } catch (error) {
     return NextResponse.json(
       { error: 'Logout failed' },

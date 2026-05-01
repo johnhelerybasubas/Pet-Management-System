@@ -18,6 +18,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const setAuthCookie = (token: string) => {
+    // Cookie is now set by the server API, no need to set client-side
     document.cookie = `sb-auth-token=${token}; path=/; max-age=604800; SameSite=Lax`;
   };
 
@@ -26,16 +27,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // Check localStorage for existing session
+    // Check localStorage for existing session first (for quick load)
     const storedUser = localStorage.getItem('auth_user');
+    const storedToken = localStorage.getItem('auth_token');
     if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
       } catch (error) {
         console.error('Error parsing stored user:', error);
       }
     }
-    setIsLoading(false);
+
+    // Also check Supabase session (source of truth) to ensure cookie/localStorage are in sync
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        const userData = {
+          id: session.user.id,
+          email: session.user.email,
+          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+        };
+        setUser(userData);
+        localStorage.setItem('auth_user', JSON.stringify(userData));
+        if (session.access_token) {
+          localStorage.setItem('auth_token', session.access_token);
+          localStorage.setItem('auth_refresh_token', session.refresh_token || '');
+          setAuthCookie(session.access_token);
+        }
+      } else if (storedUser && storedToken) {
+        // No Supabase session but we have localStorage data - try to restore
+        const storedRefreshToken = localStorage.getItem('auth_refresh_token') || '';
+        setAuthCookie(storedToken);
+        // Note: cookieStorage will automatically provide the token to Supabase
+      } else if (!storedUser) {
+        // No session and no stored user - clear any stale cookie
+        clearAuthCookie();
+      }
+      setIsLoading(false);
+    });
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        const userData = {
+          id: session.user.id,
+          email: session.user.email,
+          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+        };
+        setUser(userData);
+        localStorage.setItem('auth_user', JSON.stringify(userData));
+        if (session.access_token) {
+          localStorage.setItem('auth_token', session.access_token);
+          localStorage.setItem('auth_refresh_token', session.refresh_token || '');
+          setAuthCookie(session.access_token);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        localStorage.removeItem('auth_user');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_refresh_token');
+        clearAuthCookie();
+      } else if (event === 'TOKEN_REFRESHED' && session?.access_token) {
+        // Update stored tokens when refreshed
+        localStorage.setItem('auth_token', session.access_token);
+        localStorage.setItem('auth_refresh_token', session.refresh_token || '');
+        setAuthCookie(session.access_token);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string) => {
@@ -55,38 +117,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    // Simulate delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+      credentials: 'include', // Important: include cookies
     });
 
-    if (error || !data.user) {
-      throw new Error(error?.message || 'Invalid email or password');
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Invalid email or password');
     }
 
     const userData = {
-      id: data.user.id,
-      email: data.user.email,
-      name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User',
+      id: result.user.id,
+      email: result.user.email,
+      name: result.user.user_metadata?.full_name || result.user.email?.split('@')[0] || 'User',
     };
 
     localStorage.setItem('auth_user', JSON.stringify(userData));
-    if (data.session?.access_token) {
-      localStorage.setItem('auth_token', data.session.access_token);
-      setAuthCookie(data.session.access_token);
+    
+    if (result.session?.access_token) {
+      localStorage.setItem('auth_token', result.session.access_token);
+      localStorage.setItem('auth_refresh_token', result.session.refresh_token || '');
+      // Set the auth cookie for middleware
+      setAuthCookie(result.session.access_token);
     }
     setUser(userData);
+
+    // Clear session cache to force refresh
+    const { clearSessionCache } = await import('./supabase');
+    clearSessionCache();
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error('Error signing out from Supabase:', e);
+    }
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_refresh_token');
     clearAuthCookie();
     setUser(null);
+    // Clear session cache
+    const { clearSessionCache } = await import('./supabase');
+    clearSessionCache();
+    // Force redirect to login
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
   };
 
   return (

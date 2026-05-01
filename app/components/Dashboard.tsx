@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { IconHeart, IconCalendar, IconBell, IconZap, IconUsers, IconActivity, IconMapPin, IconShoppingCart } from '@/app/lib/icons';
-import { getCachedSession } from '@/app/lib/supabase';
 import { usePets } from '@/app/lib/pet-context';
+import { getCachedSession } from '@/app/lib/supabase';
+import { useAuth } from '@/app/lib/auth-context';
 
 interface Appointment {
   id: string;
@@ -27,6 +28,7 @@ interface Reminder {
 
 export default function Dashboard() {
   const router = useRouter();
+  const { user, isLoading: authLoading } = useAuth();
   const { pets, isLoading: petsLoading } = usePets();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -40,16 +42,19 @@ export default function Dashboard() {
         setIsLoading(true);
         setError(null);
 
-        // Get the session using cache to avoid race conditions
+        // Get session using centralized function with proper fallbacks
         const session = await getCachedSession();
-        
-        if (!session) {
-          throw new Error('Not authenticated');
+        const accessToken = session?.access_token;
+
+        if (!accessToken) {
+          console.error('No access token found, redirecting to login');
+          router.push('/login');
+          return;
         }
 
         const headers = {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
         };
 
         // Fetch appointments
@@ -97,8 +102,14 @@ export default function Dashboard() {
       }
     };
 
-    fetchData();
-  }, []);
+    // Only fetch data when auth is loaded and user is authenticated
+    if (!authLoading && user) {
+      fetchData();
+    } else if (!authLoading && !user) {
+      // Auth loaded but no user - redirect to login
+      router.push('/login');
+    }
+  }, [authLoading, user, router]);
 
   // Get the appropriate greeting based on time of day
   const getGreeting = () => {
@@ -119,16 +130,19 @@ export default function Dashboard() {
 
     try {
       setCancelling(appointmentId);
-      const session = await getCachedSession();
       
-      if (!session) {
+      // Get session using centralized function
+      const session = await getCachedSession();
+      const accessToken = session?.access_token;
+
+      if (!accessToken) {
         throw new Error('Not authenticated');
       }
 
       const response = await fetch(`/api/appointments/${appointmentId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
       });
 

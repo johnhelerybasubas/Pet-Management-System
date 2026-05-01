@@ -45,7 +45,8 @@ export default function Login() {
       // Redirect to dashboard after successful login
       router.push('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid email or password');
+      const errorMessage = err instanceof Error ? err.message : 'Invalid email or password';
+      setError(errorMessage);
       console.error('Login error:', err);
     } finally {
       setIsLoading(false);

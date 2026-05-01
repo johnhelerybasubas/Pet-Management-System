@@ -41,13 +41,14 @@ export async function POST(request: NextRequest) {
       session: data.session,
     });
 
-    // Set session cookie
+    // Set session cookie with proper settings
     if (data.session) {
       response.cookies.set('sb-auth-token', data.session.access_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        httpOnly: false, // Allow client-side JS to read
+        secure: false, // Set to false for localhost development
         sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 7,
+        path: '/',
       });
     }
 

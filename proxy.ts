@@ -1,10 +1,20 @@
-import { auth } from "@/app/auth";
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const session = await auth();
+
+  // Check for auth cookies - parse cookies properly
+  const cookieHeader = req.headers.get('cookie') || '';
+  const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
+    const [key, value] = cookie.trim().split('=');
+    if (key && value) acc[key] = value;
+    return acc;
+  }, {} as Record<string, string>);
+
+  // Check for our custom auth token or Supabase auth token
+  const hasCustomAuth = !!cookies['sb-auth-token'] || 
+    Object.keys(cookies).some(key => key.includes('sb-') && key.includes('-auth-token'));
 
   // Protected routes that require authentication
   const protectedRoutes = ['/dashboard', '/pets', '/services', '/booking', '/admin/dashboard', '/'];
@@ -18,17 +28,22 @@ export async function middleware(req: NextRequest) {
     pathname === route || pathname.startsWith(route + '/')
   );
 
+  // Skip middleware for force-logout route
+  if (pathname === '/force-logout') {
+    return NextResponse.next();
+  }
+
   // Check if accessing admin route
   const isAdminRoute = pathname.startsWith('/admin');
 
-  // If accessing protected route without session, redirect to appropriate login
-  if (isProtectedRoute && !session) {
+  // If accessing protected route without custom auth
+  if (isProtectedRoute && !hasCustomAuth) {
     const loginUrl = new URL(isAdminRoute ? '/admin-login' : '/login', req.url);
     return NextResponse.redirect(loginUrl);
   }
 
-  // If accessing auth route while logged in, redirect to dashboard
-  if (isAuthRoute && session) {
+  // If accessing auth route while logged in with custom auth, redirect to dashboard
+  if (isAuthRoute && hasCustomAuth) {
     const dashboardUrl = new URL(isAdminRoute ? '/admin/dashboard' : '/dashboard', req.url);
     return NextResponse.redirect(dashboardUrl);
   }
