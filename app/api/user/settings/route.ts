@@ -1,10 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/app/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function PUT(request: NextRequest) {
   try {
@@ -14,7 +9,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: user, error: userError } = await supabase.auth.getUser(token);
+    const { data: user, error: userError } = await supabaseAdmin.auth.getUser(token);
 
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -24,7 +19,7 @@ export async function PUT(request: NextRequest) {
     const { full_name, avatar_url, phone_number, address } = body;
 
     // Update user profile
-    const { data: profile, error: updateError } = await supabase
+    const { data: profile, error: updateError } = await supabaseAdmin
       .from('user_profiles')
       .update({
         full_name: full_name || undefined,

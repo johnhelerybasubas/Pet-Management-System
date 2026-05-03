@@ -1,10 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/app/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Helper function to get user from token (handles both real and mock tokens)
 async function getUserFromToken(token: string) {
@@ -17,7 +12,7 @@ async function getUserFromToken(token: string) {
   }
 
   // Otherwise, try to validate with Supabase
-  const { data, error } = await supabase.auth.getUser(token);
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
   
   if (error || !data.user) {
     return null;
@@ -44,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch user profile
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .select('*')
       .eq('id', userId)
@@ -55,7 +50,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch pet count
-    const { count: petCount } = await supabase
+    const { count: petCount } = await supabaseAdmin
       .from('pets')
       .select('*', { count: 'exact', head: true })
       .eq('owner_id', userId);
@@ -64,7 +59,7 @@ export async function GET(request: NextRequest) {
     const sevenDaysLater = new Date();
     sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
 
-    const { count: upcomingCount } = await supabase
+    const { count: upcomingCount } = await supabaseAdmin
       .from('appointments')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
@@ -73,7 +68,7 @@ export async function GET(request: NextRequest) {
       .lte('appointment_date', sevenDaysLater.toISOString().split('T')[0]);
 
     // Fetch overdue vaccinations for notifications
-    const { data: userPets } = await supabase
+    const { data: userPets } = await supabaseAdmin
       .from('pets')
       .select('id')
       .eq('owner_id', userId);
@@ -81,7 +76,7 @@ export async function GET(request: NextRequest) {
     let overdueVaccinations = 0;
     if (userPets && userPets.length > 0) {
       const petIds = userPets.map(p => p.id);
-      const { count } = await supabase
+      const { count } = await supabaseAdmin
         .from('vaccinations')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'overdue')
