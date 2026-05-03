@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         .from('user_profiles')
         .select('role')
         .eq('id', user.id)
-        .single() as { data: { role: string } | null; error: Error | null };
+        .single();
 
       if (profileError || !profile || profile.role !== 'admin') {
         return NextResponse.json({ error: 'Admin privileges required' }, { status: 403 });
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
           .from('user_profiles')
           .select('full_name, email')
           .eq('id', pet.owner_id)
-          .single() as { data: { full_name: string; email: string } | null };
+          .single();
 
         return {
           id: pet.id,
@@ -130,7 +130,7 @@ export async function PATCH(request: NextRequest) {
         .from('user_profiles')
         .select('role')
         .eq('id', user.id)
-        .single() as { data: { role: string } | null; error: Error | null };
+        .single();
 
       if (profileError || !profile || profile.role !== 'admin') {
         return NextResponse.json({ error: 'Admin privileges required' }, { status: 403 });
@@ -142,8 +142,8 @@ export async function PATCH(request: NextRequest) {
     if (vaccinationStatus) updateData.vaccination_status = vaccinationStatus;
     if (activityLevel) updateData.activity_level = activityLevel;
 
-    const { error } = await (supabaseAdmin
-      .from('pets') as unknown as { update: (data: Record<string, unknown>) => { eq: (field: string, value: string) => Promise<{ error: Error | null }> } })
+    const { error } = await supabaseAdmin
+      .from('pets')
       .update(updateData)
       .eq('id', petId);
 
