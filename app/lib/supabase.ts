@@ -89,9 +89,48 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 });
 
 // Service role client for server-side operations (bypasses RLS)
-export const supabaseAdmin = supabaseServiceKey 
-  ? createClient(supabaseUrl, supabaseServiceKey)
-  : createClient(supabaseUrl, supabaseAnonKey);
+// Use lazy initialization to avoid errors during build when env vars aren't available
+let supabaseAdminInstance: ReturnType<typeof createClient> | null = null;
+
+function getSupabaseAdmin(): ReturnType<typeof createClient> {
+  if (!supabaseAdminInstance) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    
+    if (!url) {
+      throw new Error('NEXT_PUBLIC_SUPABASE_URL is not set');
+    }
+    
+    const key = serviceKey || anonKey;
+    if (!key) {
+      throw new Error('SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY is not set');
+    }
+    
+    supabaseAdminInstance = createClient(url, key);
+  }
+  return supabaseAdminInstance;
+}
+
+// Typed SupabaseAdmin wrapper that provides lazy initialization
+// Uses a Proxy to intercept property access and create the client on first use
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseClientType = ReturnType<typeof createClient>;
+
+// Create a typed proxy handler
+const handler: ProxyHandler<SupabaseClientType> = {
+  get(_target, prop) {
+    const client = getSupabaseAdmin();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (client as any)[prop];
+  },
+};
+
+// Export the proxied client - cast through unknown to satisfy TypeScript
+export const supabaseAdmin = new Proxy(
+  {} as unknown as SupabaseClientType,
+  handler
+);
 
 // Session cache to prevent race conditions from concurrent getSession() calls
 let sessionCache: any = null;

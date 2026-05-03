@@ -46,21 +46,21 @@ export async function GET(request: NextRequest) {
           .from('pets')
           .select('name, type')
           .eq('id', appointment.pet_id)
-          .single();
+          .single() as { data: { name: string; type: string } | null };
 
         // Fetch user info
         const { data: user } = await supabaseAdmin
           .from('user_profiles')
           .select('full_name')
           .eq('id', appointment.user_id)
-          .single();
+          .single() as { data: { full_name: string } | null };
 
         // Fetch service info
         const { data: service } = await supabaseAdmin
           .from('services')
           .select('name, category')
           .eq('id', appointment.service_id)
-          .single();
+          .single() as { data: { name: string; category: string } | null };
 
         return {
           id: appointment.id,
@@ -110,8 +110,8 @@ export async function PATCH(request: NextRequest) {
   try {
     const { bookingId, status } = await request.json();
 
-    const { error } = await supabaseAdmin
-      .from('appointments')
+    const { error } = await (supabaseAdmin
+      .from('appointments') as unknown as { update: (data: { status: string }) => { eq: (field: string, value: string) => Promise<{ error: Error | null }> } })
       .update({ status })
       .eq('id', bookingId);
 
